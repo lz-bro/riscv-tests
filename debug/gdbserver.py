@@ -2172,6 +2172,7 @@ class ItriggerTest(GdbSingleHartTest):
         self.gdb.command("monitor riscv itrigger clear")
         self.gdb.p("keep_running=0")
         self.exit()
+        self.disable_timer()
 
 parsed = None
 def main():
