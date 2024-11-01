@@ -649,7 +649,7 @@ def MCONTROL_TYPE(xlen):
 def MCONTROL_DMODE(xlen):
     return 1<<((xlen)-5)
 def MCONTROL_MASKMAX(xlen):
-    return 0x3<<((xlen)-11)
+    return 0x3f<<((xlen)-11)
 
 MCONTROL_SELECT = 1<<19
 MCONTROL_TIMING = 1<<18
@@ -666,6 +666,7 @@ MCONTROL_LOAD = 1<<0
 
 MCONTROL_TYPE_NONE = 0
 MCONTROL_TYPE_MATCH = 2
+MCONTROL_TYPE_MATCH6 = 6
 
 MCONTROL_ACTION_DEBUG_EXCEPTION = 0
 MCONTROL_ACTION_DEBUG_MODE = 1
@@ -713,11 +714,23 @@ class HwbpManual(DebugTest):
             self.gdb.p("$tdata1=0")
             # Need to write a valid value to tdata2 before writing tdata1
             self.gdb.p(f"$tdata2=0x{tdata2:x}")
-            self.gdb.p(f"$tdata1=0x{tdata1:x}")
 
+            tdata1_t2 = set_field(tdata1, MCONTROL_TYPE(self.hart.xlen),
+                               MCONTROL_TYPE_MATCH)
+            self.gdb.p(f"$tdata1=0x{tdata1_t2:x}")
             tdata2_rb = self.gdb.p("$tdata2")
             tdata1_rb = self.gdb.p("$tdata1")
-            if tdata1_rb == tdata1 and tdata2_rb == tdata2:
+            maskmax_rb = tdata1_rb & MCONTROL_MASKMAX(self.hart.xlen)
+            tdata1_t2 = tdata1_t2 | maskmax_rb
+            if tdata1_rb == tdata1_t2 and tdata2_rb == tdata2:
+                return tselect
+
+            tdata1_t6 = set_field(tdata1, MCONTROL_TYPE(self.hart.xlen),
+                               MCONTROL_TYPE_MATCH6)
+            self.gdb.p(f"$tdata1=0x{tdata1_t6:x}")
+            tdata2_rb = self.gdb.p("$tdata2")
+            tdata1_rb = self.gdb.p("$tdata1")
+            if tdata1_rb == tdata1_t6 and tdata2_rb == tdata2:
                 return tselect
 
             type_rb = tdata1_rb & MCONTROL_TYPE(self.hart.xlen)
@@ -747,8 +760,6 @@ class HwbpManual(DebugTest):
 
         #self.gdb.hbreak("rot13")
         tdata1 = MCONTROL_DMODE(self.hart.xlen)
-        tdata1 = set_field(tdata1, MCONTROL_TYPE(self.hart.xlen),
-                           MCONTROL_TYPE_MATCH)
         tdata1 = set_field(tdata1, MCONTROL_ACTION, MCONTROL_ACTION_DEBUG_MODE)
         tdata1 = set_field(tdata1, MCONTROL_MATCH, MCONTROL_MATCH_EQUAL)
         tdata1 |= MCONTROL_M | MCONTROL_S | MCONTROL_U | MCONTROL_EXECUTE
